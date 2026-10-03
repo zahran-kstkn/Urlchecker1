@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="theme-color" content="#f2f5ef">
+	<title>Link Interceptor | Check before you click</title>
+	<style>
+		:root {
+			color-scheme: light;
+			--paper: #f2f5ef;
+			--surface: #ffffff;
+			--ink: #17251f;
+			--muted: #64716a;
+			--line: #d8ded7;
+			--green: #17684e;
+			--lime: #d9f36a;
+			--amber: #a3650b;
+			--amber-bg: #fff3d4;
+			--red: #b93d2c;
+			--red-bg: #ffebe6;
+			--safe: #17684e;
+			--safe-bg: #e4f3eb;
+			--display: Georgia, "Times New Roman", serif;
+			--ui: "Aptos", "Segoe UI", sans-serif;
+		}
+
+		* { box-sizing: border-box; }
+
+		body {
+			margin: 0;
+			min-width: 320px;
+			background:
+				linear-gradient(90deg, transparent 0 49.95%, rgba(23, 37, 31, .035) 50%, transparent 50.05%),
+				var(--paper);
+			color: var(--ink);
+			font-family: var(--ui);
+		}
+
+		button, textarea { font: inherit; }
+		button { color: inherit; }
+
+		.shell { width: min(1120px, calc(100% - 48px)); margin: 0 auto; }
+
+		.topbar {
+			height: 76px;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			border-bottom: 1px solid var(--line);
+		}
+
+		.brand { display: flex; align-items: center; gap: 11px; font-weight: 750; letter-spacing: .01em; }
+		.brand-mark {
+			width: 30px;
+			height: 30px;
+			display: grid;
+			place-items: center;
+			border: 2px solid var(--green);
+			border-radius: 50%;
+			color: var(--green);
+			font-size: 16px;
+			font-weight: 800;
+		}
+		.top-note { color: var(--muted); font-size: 13px; }
+		.top-note strong { color: var(--green); font-weight: 700; }
+
+		main { padding: 58px 0 72px; }
+
+		.intro { max-width: 690px; margin-bottom: 38px; animation: arrive .55s ease-out both; }
+		.eyebrow {
+			display: inline-flex;
+			align-items: center;
+			gap: 9px;
+			color: var(--green);
+			font-size: 11px;
+			font-weight: 800;
+			letter-spacing: .12em;
+			text-transform: uppercase;
+		}
+		.eyebrow::before { content: ""; width: 24px; height: 2px; background: var(--green); }
+		h1 {
+			max-width: 620px;
+			margin: 15px 0 12px;
+			font: 400 clamp(42px, 6vw, 68px)/.99 var(--display);
+			letter-spacing: 0;
+		}
+		.intro p { max-width: 570px; margin: 0; color: var(--muted); font-size: 16px; line-height: 1.65; }
+
+		.workspace { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(260px, .8fr); gap: 18px; align-items: start; }
+		.panel { background: var(--surface); border: 1px solid var(--line); }
+		.input-panel { padding: 26px; animation: arrive .55s .08s ease-out both; }
+		.panel-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; margin-bottom: 16px; }
+		.panel-heading h2 { margin: 0; font-size: 16px; font-weight: 750; }
+		.panel-heading span { color: var(--muted); font-size: 12px; }
+		.url-input {
+			display: block;
+			width: 100%;
+			min-height: 132px;
+			resize: vertical;
+			padding: 16px;
+			border: 1px solid #bbc7bd;
+			border-radius: 2px;
+			outline: none;
+			background: #fbfcfa;
+			color: var(--ink);
+			font: 14px/1.6 "Cascadia Code", Consolas, monospace;
+			overflow-wrap: anywhere;
+			transition: border-color .18s, box-shadow .18s;
+		}
+		.url-input:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(23, 104, 78, .12); }
+		.url-input::placeholder { color: #89948d; }
+		.input-error { min-height: 20px; padding-top: 5px; color: var(--red); font-size: 12px; }
+		.actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+		.analyze-button {
+			min-height: 45px;
+			padding: 0 18px;
+			border: 0;
+			border-radius: 2px;
+			background: var(--green);
+			color: white;
+			font-weight: 750;
+			cursor: pointer;
+			transition: background .18s, transform .18s;
+		}
+		.analyze-button:hover { background: #10543e; transform: translateY(-1px); }
+		.text-button { min-height: 40px; padding: 0 10px; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
+		.text-button:hover { color: var(--ink); text-decoration: underline; }
+		button:focus-visible { outline: 3px solid #9cbd47; outline-offset: 3px; }
+
+		.examples { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 19px; }
+		.examples-label { margin-right: 2px; color: var(--muted); font-size: 12px; }
+		.example-button { padding: 6px 9px; border: 1px solid var(--line); border-radius: 2px; background: white; color: #45554b; font-size: 11px; cursor: pointer; }
+		.example-button:hover { border-color: var(--green); color: var(--green); }
+
+		.privacy-panel { padding: 23px; background: #e7eee6; border-color: #d4ded3; animation: arrive .55s .14s ease-out both; }
+		.privacy-kicker { display: flex; align-items: center; gap: 8px; color: var(--green); font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+		.privacy-panel h2 { margin: 18px 0 10px; font: 400 26px/1.1 var(--display); }
+		.privacy-panel p { margin: 0; color: #53645a; font-size: 13px; line-height: 1.65; }
+		.privacy-rule { height: 1px; margin: 19px 0 15px; background: #cbd8cb; }
+		.privacy-foot { color: #53645a; font-size: 11px; line-height: 1.6; }
+
+		.results { margin-top: 18px; animation: arrive .4s ease-out both; }
+		.results[hidden] { display: none; }
+		.result-top { display: grid; grid-template-columns: 1fr 180px; min-height: 164px; border: 1px solid var(--line); background: var(--surface); }
+		.verdict { padding: 23px 25px; }
+		.verdict-label { display: inline-flex; gap: 8px; align-items: center; color: var(--muted); font-size: 11px; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; }
+		.verdict h2 { margin: 12px 0 7px; font: 400 32px/1.05 var(--display); }
+		.verdict p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.55; overflow-wrap: anywhere; }
+		.score-box { display: flex; flex-direction: column; justify-content: center; align-items: center; border-left: 1px solid var(--line); background: #f8faf7; }
+		.score-number { font: 400 45px/1 var(--display); }
+		.score-caption { margin-top: 7px; color: var(--muted); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+		.score-track { width: 82px; height: 5px; margin-top: 13px; overflow: hidden; background: #dfe5df; }
+		.score-fill { width: 0; height: 100%; background: var(--green); transition: width .4s ease; }
+		.result-caveat { padding: 10px 14px; border: 1px solid var(--line); border-top: 0; background: #f8faf7; color: var(--muted); font-size: 11px; line-height: 1.5; }
+		.checks-heading { display: flex; justify-content: space-between; align-items: baseline; padding: 22px 2px 10px; }
+		.checks-heading h3 { margin: 0; font-size: 13px; }
+		.checks-heading span { color: var(--muted); font-size: 11px; }
+		.checks { border-top: 1px solid var(--line); }
+		.check-row { display: grid; grid-template-columns: 122px minmax(0, 1fr) auto; gap: 12px; align-items: center; min-height: 53px; padding: 10px 13px; border: 1px solid var(--line); border-top: 0; background: white; }
+		.check-name { font-size: 12px; font-weight: 750; }
+		.check-detail { color: var(--muted); font-size: 11px; line-height: 1.45; overflow-wrap: anywhere; }
+		.check-state { min-width: 63px; padding: 5px 7px; border-radius: 2px; text-align: center; font-size: 9px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+		.state-good { color: var(--safe); background: var(--safe-bg); }
+		.state-warn { color: var(--amber); background: var(--amber-bg); }
+		.state-bad { color: var(--red); background: var(--red-bg); }
+		.state-neutral { color: #53645a; background: #edf1ed; }
+
+		footer { display: flex; justify-content: space-between; gap: 18px; padding: 18px 0 25px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; line-height: 1.5; }
+		footer span:last-child { text-align: right; }
+		@keyframes arrive { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: translateY(0); } }
+
+		@media (max-width: 760px) {
+			.shell { width: min(100% - 32px, 560px); }
+			.topbar { height: 64px; }
+			.top-note { max-width: 140px; text-align: right; line-height: 1.4; }
+			main { padding: 40px 0 48px; }
+			.intro { margin-bottom: 27px; }
+			h1 { max-width: 500px; font-size: 48px; }
+			.workspace { grid-template-columns: 1fr; gap: 12px; }
+			.input-panel { padding: 19px; }
+			.privacy-panel { padding: 18px 19px; }
+			.privacy-panel h2 { margin-top: 13px; }
+			.privacy-rule { margin: 13px 0 10px; }
+			.result-top { grid-template-columns: 1fr 112px; }
+			.verdict { padding: 18px; }
+			.verdict h2 { font-size: 27px; }
+			.check-row { grid-template-columns: 90px minmax(0, 1fr); gap: 8px; }
+			.check-state { grid-column: 2; justify-self: start; }
+			footer { flex-direction: column; gap: 5px; }
+			footer span:last-child { text-align: left; }
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			*, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+		}
+	</style>
+</head>
+<body>
+	<div class="shell">
+		<header class="topbar">
+			<div class="brand"><span class="brand-mark" aria-hidden="true">L</span><span>Link Interceptor</span></div>
+			<div class="top-note"><strong>Pause. Check. Then decide.</strong></div>
+		</header>
+
+		<main>
+			<section class="intro" aria-labelledby="page-title">
+				<div class="eyebrow">A second look at suspicious links</div>
+				<h1 id="page-title">A link can wait.<br>Your safety can't.</h1>
+				<p>Paste a URL from a text or email. We'll inspect its address for common phishing clues before you open it.</p>
+			</section>
+
+			<div class="workspace">
+				<section class="panel input-panel" aria-labelledby="input-heading">
+					<div class="panel-heading">
+						<h2 id="input-heading">Check a URL</h2>
+						<span>Nothing is opened</span>
+					</div>
+					<form id="check-form" novalidate>
+						<label for="url-input" class="sr-only" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">Suspicious URL</label>
+						<textarea id="url-input" class="url-input" spellcheck="false" autocomplete="url" placeholder="Paste the full link here, for example:&#10;https://account.example.com/verify"></textarea>
+						<div class="input-error" id="input-error" role="alert" aria-live="polite"></div>
+						<div class="actions">
+							<button class="analyze-button" type="submit">Analyze link</button>
+							<button class="text-button" id="paste-button" type="button">Paste</button>
+							<button class="text-button" id="clear-button" type="button">Clear</button>
+						</div>
+					</form>
+					<div class="examples" aria-label="Example URLs">
+						<span class="examples-label">Try a sample:</span>
+						<button class="example-button" type="button" data-example="http://paypa1-secure.test/login">Lookalike domain</button>
+						<button class="example-button" type="button" data-example="https://news.example.org/story">Ordinary URL</button>
+					</div>
+				</section>
+
+				<aside class="panel privacy-panel" aria-labelledby="privacy-title">
+					<div class="privacy-kicker"><span aria-hidden="true">+</span> Before you continue</div>
+					<h2 id="privacy-title">Keep your details to yourself.</h2>
+					<p>Never enter a password, verification code, or payment detail on a page reached from an unexpected message. Open the service's official app or type its address yourself.</p>
+					<div class="privacy-rule"></div>
+					  <div class="privacy-foot">The submitted URL is sent to this site's server for analysis. It is not opened or sent to an external threat service.</div>
+				</aside>
+			</div>
+
+			<section class="results" id="results" aria-live="polite" hidden>
+				<div class="result-top">
+					<div class="verdict">
+						<div class="verdict-label" id="verdict-label">Analysis complete</div>
+						<h2 id="verdict-title">Review the signals</h2>
+						<p id="verdict-description"></p>
+					</div>
+					<div class="score-box" aria-label="Heuristic risk score">
+						<div class="score-number"><span id="score-value">0</span><span style="font-size:20px">/100</span></div>
+						<div class="score-caption">Risk indicators</div>
+						<div class="score-track" aria-hidden="true"><div class="score-fill" id="score-fill"></div></div>
+					</div>
+				</div>
+				<div class="result-caveat">A low score does not prove a link is safe. This is a local heuristic check, not a live security or reputation service.</div>
+				<div class="checks-heading"><h3>What we found</h3><span id="check-summary"></span></div>
+				<div class="checks" id="check-list"></div>
+			</section>
+		</main>
+
+		<footer>
+			<span>Link Interceptor · A URL risk awareness tool</span>
+			<span>Do not use this result as the sole basis for trusting a link.</span>
+		</footer>
+	</div>
+
+	<script>
+		const form = document.querySelector("#check-form");
+		const input = document.querySelector("#url-input");
+		const error = document.querySelector("#input-error");
+		const results = document.querySelector("#results");
+		async function inspectUrl(rawValue) {
+			const response = await fetch("/api/analyze", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ url: rawValue })
+			});
+			const payload = await response.json();
+			if (!response.ok) return { error: payload.error || "The local analyzer rejected this URL." };
+			return payload;
+		}
+
+		function showResults(analysis) {
+			const score = analysis.score;
+			const flagged = analysis.checks.filter((check) => check.state === "bad" || check.state === "warn").length;
+			const isHigh = score >= 45;
+			const isCaution = score >= 15;
+			document.querySelector("#verdict-label").textContent = isHigh ? "Strong warning" : isCaution ? "Use caution" : "No obvious red flags";
+			document.querySelector("#verdict-title").textContent = isHigh ? "Don't open this link." : isCaution ? "Take a closer look." : "Stay alert anyway.";
+			document.querySelector("#verdict-description").textContent = isHigh
+				? `We found ${flagged} concerning signal${flagged === 1 ? "" : "s"} for ${analysis.hostname}. Do not enter personal information.`
+				: isCaution
+					? `We found ${flagged} signal${flagged === 1 ? "" : "s"} worth checking for ${analysis.hostname}. Verify the address independently.`
+					: `No common warning signs were detected for ${analysis.hostname}. That is not a guarantee that it is legitimate.`;
+			document.querySelector("#score-value").textContent = String(score);
+			document.querySelector("#score-fill").style.width = `${score}%`;
+			document.querySelector("#score-fill").style.background = isHigh ? "var(--red)" : isCaution ? "var(--amber)" : "var(--green)";
+			document.querySelector("#check-summary").textContent = `${flagged} signal${flagged === 1 ? "" : "s"} to review`;
+
+			const list = document.querySelector("#check-list");
+			list.replaceChildren(...analysis.checks.map((check) => {
+				const row = document.createElement("div");
+				row.className = "check-row";
+				const name = document.createElement("div");
+				name.className = "check-name";
+				name.textContent = check.name;
+				const detail = document.createElement("div");
+				detail.className = "check-detail";
+				detail.textContent = check.detail;
+				const state = document.createElement("span");
+				state.className = `check-state state-${check.state}`;
+				state.textContent = check.state === "bad" ? "Flagged" : check.state === "warn" ? "Caution" : check.state === "good" ? "No issue" : "Sample only";
+				row.append(name, detail, state);
+				return row;
+			}));
+			results.hidden = false;
+			results.scrollIntoView({ behavior: "smooth", block: "nearest" });
+		}
+
+		form.addEventListener("submit", async (event) => {
+			event.preventDefault();
+			error.textContent = "";
+			try {
+				const analysis = await inspectUrl(input.value);
+				if (analysis.error) {
+					error.textContent = analysis.error;
+					results.hidden = true;
+					input.focus();
+					return;
+				}
+				showResults(analysis);
+			} catch {
+				error.textContent = "The local analyzer is unavailable. Start the server, then try again.";
+				results.hidden = true;
+			}
+		});
+
+		document.querySelector("#paste-button").addEventListener("click", async () => {
+			error.textContent = "";
+			try {
+				input.value = await navigator.clipboard.readText();
+				input.focus();
+			} catch {
+				error.textContent = "Clipboard access isn't available here. Paste into the box directly instead.";
+			}
+		});
+
+		document.querySelector("#clear-button").addEventListener("click", () => {
+			input.value = "";
+			error.textContent = "";
+			results.hidden = true;
+			input.focus();
+		});
+
+		document.querySelectorAll("[data-example]").forEach((button) => {
+			button.addEventListener("click", () => {
+				input.value = button.dataset.example;
+				error.textContent = "";
+				form.requestSubmit();
+			});
+		});
+	</script>
+</body>
+</html>
