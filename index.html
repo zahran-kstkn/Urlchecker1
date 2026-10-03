@@ -238,7 +238,7 @@
 					<h2 id="privacy-title">Keep your details to yourself.</h2>
 					<p>Never enter a password, verification code, or payment detail on a page reached from an unexpected message. Open the service's official app or type its address yourself.</p>
 					<div class="privacy-rule"></div>
-					  <div class="privacy-foot">The submitted URL is sent to this site's server for analysis. It is not opened or sent to an external threat service.</div>
+					<div class="privacy-foot">This Pages demo checks the URL in your browser. It is not uploaded, and the small built-in sample list is not a live threat feed.</div>
 				</aside>
 			</div>
 
@@ -272,15 +272,78 @@
 		const input = document.querySelector("#url-input");
 		const error = document.querySelector("#input-error");
 		const results = document.querySelector("#results");
-		async function inspectUrl(rawValue) {
-			const response = await fetch("/api/analyze", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ url: rawValue })
-			});
-			const payload = await response.json();
-			if (!response.ok) return { error: payload.error || "The local analyzer rejected this URL." };
-			return payload;
+		const demoDomains = new Set(["paypa1-secure.test", "account-verify.test", "parcel-track.test"]);
+		const officialDomains = {
+			paypal: ["paypal.com"],
+			google: ["google.com", "google.co.uk"],
+			amazon: ["amazon.com", "amazon.co.uk"],
+			microsoft: ["microsoft.com"],
+			apple: ["apple.com"],
+			chase: ["chase.com"],
+			fedex: ["fedex.com"],
+			dhl: ["dhl.com"]
+		};
+
+		function normalizedLabel(label) {
+			return label.toLowerCase().replace(/[0]/g, "o").replace(/[1|!]/g, "l").replace(/[3]/g, "e").replace(/[5]/g, "s").replace(/[8]/g, "b").replace(/[^a-z]/g, "");
+		}
+
+		function editDistance(left, right) {
+			const row = Array.from({ length: right.length + 1 }, (_, index) => index);
+			for (let i = 1; i <= left.length; i += 1) {
+				let diagonal = row[0];
+				row[0] = i;
+				for (let j = 1; j <= right.length; j += 1) {
+					const above = row[j];
+					row[j] = Math.min(row[j] + 1, row[j - 1] + 1, diagonal + (left[i - 1] === right[j - 1] ? 0 : 1));
+					diagonal = above;
+				}
+			}
+			return row[right.length];
+		}
+
+		function inspectUrl(rawValue) {
+			const raw = rawValue.trim();
+			const candidate = /^[a-z][a-z\d+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`;
+			let url;
+			try {
+				url = new URL(candidate);
+			} catch {
+				return { error: "That doesn't look like a complete URL. Check for missing or extra characters." };
+			}
+			if (!["http:", "https:"].includes(url.protocol) || !url.hostname) {
+				return { error: "Enter a web address that starts with http:// or https://." };
+			}
+
+			const hostname = url.hostname.toLowerCase().replace(/\.$/, "");
+			const labels = hostname.split(".");
+			const hostLabels = labels.slice(0, -1);
+			const normalizedHost = normalizedLabel(hostname);
+			const brands = Object.keys(officialDomains);
+			const isOfficialDomain = (brand) => officialDomains[brand].some((domain) => hostname === domain || hostname.endsWith(`.${domain}`));
+			const matchingBrand = brands.find((brand) => normalizedHost.includes(brand) && !isOfficialDomain(brand));
+			const nearBrand = brands.find((brand) => hostLabels.some((label) => {
+				const normalized = normalizedLabel(label);
+				return normalized.length >= 4 && editDistance(normalized, brand) === 1;
+			}) && !isOfficialDomain(brand));
+			const suspectedBrand = matchingBrand || nearBrand;
+			const isIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname) || hostname.startsWith("[");
+			const subdomainCount = Math.max(0, labels.length - 2);
+			const encodedHost = labels.some((label) => label.startsWith("xn--"));
+			const suspiciousPunctuation = /-{2,}|[_]/.test(hostname);
+			const knownDemoDomain = demoDomains.has(hostname);
+			const longUrl = raw.length > 120;
+			const credentials = Boolean(url.username || url.password);
+			const checks = [
+				{ name: "Demo reputation", detail: knownDemoDomain ? "This exact domain is a built-in demonstration entry, not a verified threat report." : "No match in the small built-in demonstration list; this is not a live reputation lookup.", state: knownDemoDomain ? "bad" : "neutral", weight: knownDemoDomain ? 100 : 0 },
+				{ name: "Brand lookalike", detail: suspectedBrand ? `The hostname may be imitating ${suspectedBrand}. Verify its registered domain independently.` : "No common brand imitation was detected by these simple checks.", state: suspectedBrand ? "bad" : "good", weight: suspectedBrand ? 45 : 0 },
+				{ name: "Connection", detail: url.protocol === "https:" ? "HTTPS is present, but encryption alone does not establish trust." : "This address uses HTTP, so the connection is not encrypted.", state: url.protocol === "https:" ? "good" : "warn", weight: url.protocol === "https:" ? 0 : 20 },
+				{ name: "Host structure", detail: isIp ? "The hostname is an IP address rather than a familiar domain." : `${subdomainCount} subdomain${subdomainCount === 1 ? "" : "s"}${subdomainCount >= 3 ? "; unusually deep nesting can hide the actual domain." : "."}`, state: isIp ? "warn" : subdomainCount >= 3 ? "warn" : "good", weight: isIp ? 20 : subdomainCount >= 3 ? 15 : 0 },
+				{ name: "Address format", detail: credentials ? "The URL contains user information before the host, a common deception tactic." : encodedHost ? "The hostname uses punycode encoding; verify each character carefully." : suspiciousPunctuation ? "The hostname contains unusual repeated punctuation or underscores." : "No user information or obvious hostname encoding was found.", state: credentials || encodedHost || suspiciousPunctuation ? "warn" : "good", weight: credentials ? 30 : encodedHost || suspiciousPunctuation ? 15 : 0 },
+				{ name: "URL length", detail: longUrl ? `This address is ${raw.length} characters long; long links can obscure their destination.` : `This address is ${raw.length} characters long.`, state: longUrl ? "warn" : "good", weight: longUrl ? 10 : 0 }
+			];
+			const score = Math.min(100, Math.max(...checks.map((check) => check.weight), checks.reduce((total, check) => total + check.weight, 0)));
+			return { hostname, score, checks };
 		}
 
 		function showResults(analysis) {
@@ -320,22 +383,17 @@
 			results.scrollIntoView({ behavior: "smooth", block: "nearest" });
 		}
 
-		form.addEventListener("submit", async (event) => {
+		form.addEventListener("submit", (event) => {
 			event.preventDefault();
 			error.textContent = "";
-			try {
-				const analysis = await inspectUrl(input.value);
-				if (analysis.error) {
-					error.textContent = analysis.error;
-					results.hidden = true;
-					input.focus();
-					return;
-				}
-				showResults(analysis);
-			} catch {
-				error.textContent = "The local analyzer is unavailable. Start the server, then try again.";
+			const analysis = inspectUrl(input.value);
+			if (analysis.error) {
+				error.textContent = analysis.error;
 				results.hidden = true;
+				input.focus();
+				return;
 			}
+			showResults(analysis);
 		});
 
 		document.querySelector("#paste-button").addEventListener("click", async () => {

@@ -44,7 +44,13 @@ WHERE domains.hostname = 'suspicious.example';
 
 For real deployments, create a separate `threat_sources` row for each feed and record provenance and review dates. Keep the feed current and avoid treating an unverified report as confirmed malicious activity.
 
-## Publish it
+## GitHub Pages demo
+
+`index.html` is a static, browser-only demo that works on GitHub Pages. In your GitHub repository, open **Settings > Pages**, choose **Deploy from a branch**, select `main` and the `/ (root)` folder, then save. GitHub will show the public URL after deployment.
+
+This static version does not use the Python API or SQLite database. Its URL checks run in the visitor's browser, and its built-in `.test` reputation entries are demonstrations only, not a live threat feed.
+
+## Publish the Python service
 
 1. Create a public GitHub repository and push these project files. Do not commit `link_interceptor.sqlite3`; it contains local database state and is ignored by Git.
 2. On Render, create a **Web Service** connected to that GitHub repository.
