@@ -2,6 +2,25 @@
 
 A URL analysis demo. The service analyzes submitted URLs but never opens them or sends them to an external reputation provider. When hosted publicly, submitted URLs are sent to the server hosting this app.
 
+## Install as a browser extension
+
+The extension uses the existing `index.html` as its toolbar popup. URL analysis runs entirely in your browser; it does not contact the Python service or any reputation provider. It asks for permission to read links on websites so it can warn before a suspicious link opens. Only the URL of a link you click is checked. Links scoring 15 or higher on the existing heuristic check show a small in-page prompt, with options to scan, proceed, or stay. Scanning explains the detected signals and common scam tactics; it is not a live threat lookup. The in-page warning can be turned off in the extension popup; the manual scanner remains available. The extension only attempts to read the clipboard when you click **Paste**; the `clipboardRead` permission enables that button.
+
+### Chrome
+
+1. Open `chrome://extensions`.
+2. Turn on **Developer mode**.
+3. Choose **Load unpacked** and select this project folder (the one containing `manifest.json`).
+4. Pin **Link Interceptor** from the Extensions menu for easy access. The first install asks for access to websites so it can check clicked links.
+
+### Firefox
+
+1. Open `about:debugging#/runtime/this-firefox`.
+2. Choose **Load Temporary Add-on…**.
+3. Select this project's `manifest.json` and approve website access when prompted.
+
+Firefox temporary add-ons are removed when Firefox closes. For regular use, package the project folder as a ZIP and submit it to Mozilla Add-ons for signing; then install the signed XPI. The same source folder and manifest work for Chrome and Firefox.
+
 ## Run
 
 Install Python 3.10 or later, then open PowerShell in this folder and run:

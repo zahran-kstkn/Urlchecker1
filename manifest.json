@@ -1,0 +1,37 @@
+{
+	"manifest_version": 3,
+	"name": "Link Interceptor",
+	"version": "1.0.0",
+	"description": "Check a suspicious link for common phishing clues without opening or uploading it.",
+	"permissions": [
+		"clipboardRead",
+		"storage"
+	],
+	"host_permissions": [
+		"http://*/*",
+		"https://*/*"
+	],
+	"content_scripts": [
+		{
+			"matches": [
+				"http://*/*",
+				"https://*/*"
+			],
+			"js": [
+				"analyzer.js",
+				"content.js"
+			],
+			"run_at": "document_start"
+		}
+	],
+	"action": {
+		"default_title": "Check a suspicious link",
+		"default_popup": "index.html"
+	},
+	"browser_specific_settings": {
+		"gecko": {
+			"id": "link-interceptor@example.org",
+			"strict_min_version": "109.0"
+		}
+	}
+}
