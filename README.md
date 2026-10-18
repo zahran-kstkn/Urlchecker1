@@ -4,7 +4,7 @@ A URL analysis demo. The service analyzes submitted URLs but never opens them or
 
 ## Install as a browser extension
 
-The extension uses the existing `index.html` as its toolbar popup. URL analysis runs entirely in your browser; it does not contact the Python service or any reputation provider. It asks for permission to read links on websites so it can warn before a suspicious link opens. Only the URL of a link you click is checked. Links scoring 15 or higher on the existing heuristic check show a small in-page prompt, with options to scan, proceed, or stay. Scanning explains the detected signals and common scam tactics; it is not a live threat lookup. The in-page warning can be turned off in the extension popup; the manual scanner remains available. The extension only attempts to read the clipboard when you click **Paste**; the `clipboardRead` permission enables that button.
+The extension uses the existing `index.html` as its toolbar popup. URL analysis runs entirely in your browser; it does not contact the Python service or any reputation provider. It asks for permission to read links on websites so it can warn before a suspicious link opens. Only the URL of a link you click is checked. Links scoring 15 or higher on the existing heuristic check show a small in-page prompt, with options to scan, proceed, or stay. In WhatsApp Web, every clicked external web link shows the prompt, including links with no heuristic warnings, so you can review it before opening. Scanning explains detected signals and common scam tactics; it is not a live threat lookup and does not follow redirects, so no warning signs do not prove a site is safe. The in-page warning can be turned off in the extension popup; the manual scanner remains available. The extension only attempts to read the clipboard when you click **Paste**; the `clipboardRead` permission enables that button.
 
 ### Chrome
 
@@ -18,8 +18,11 @@ The extension uses the existing `index.html` as its toolbar popup. URL analysis 
 1. Open `about:debugging#/runtime/this-firefox`.
 2. Choose **Load Temporary Add-on…**.
 3. Select this project's `manifest.json` and approve website access when prompted.
+4. Make sure the extension is allowed to run on `web.whatsapp.com`, then refresh the WhatsApp Web tab.
 
 Firefox temporary add-ons are removed when Firefox closes. For regular use, package the project folder as a ZIP and submit it to Mozilla Add-ons for signing; then install the signed XPI. The same source folder and manifest work for Chrome and Firefox.
+
+The WhatsApp Web link prompt does not work inside the WhatsApp mobile or desktop app. It checks URLs locally with simple heuristics, not a live threat database, and it does not follow redirects: a warning means there are signals to review, and no warning signals do not mean a site is safe.
 
 ## Run
 

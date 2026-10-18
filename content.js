@@ -10,6 +10,35 @@
 	let pendingLink;
 	let warningsEnabled = true;
 
+	function isWhatsAppHost(hostname) {
+		return hostname === "whatsapp.com"
+			|| hostname.endsWith(".whatsapp.com")
+			|| hostname === "wa.me";
+	}
+
+	function getDestinationUrl(href) {
+		let url;
+		try {
+			url = new URL(href);
+		} catch {
+			return href;
+		}
+		if (url.hostname !== "l.whatsapp.com") {
+			return url.href;
+		}
+
+		const redirectedUrl = url.searchParams.get("u") || url.searchParams.get("url");
+		if (!redirectedUrl) {
+			return url.href;
+		}
+		try {
+			const destination = new URL(redirectedUrl);
+			return ["http:", "https:"].includes(destination.protocol) ? destination.href : url.href;
+		} catch {
+			return url.href;
+		}
+	}
+
 	function createPopup() {
 		if (popupHost) {
 			return;
@@ -62,6 +91,7 @@
 				.proceed { border-color: #b93d2c; color: #9c3325; }
 				.lesson { margin-top: 14px; padding-top: 12px; border-top: 1px solid #d8ded7; }
 				.lesson h3 { margin: 0 0 4px; font-size: 13px; }
+				.scan-summary { margin: 0 0 8px; color: #33483a; font-size: 12px; font-weight: 650; }
 				.point { padding: 10px 0; border-top: 1px solid #e6eae6; }
 				.point:first-child { border-top: 0; }
 				.point p { margin: 4px 0; font-size: 12px; }
@@ -76,8 +106,9 @@
 				<div class="destination"></div>
 				<div class="lesson" hidden>
 					<h3>What the scan found</h3>
+					<p class="scan-summary"></p>
 					<div class="points"></div>
-					<p class="muted">This is a local heuristic check, not a live threat lookup. No link is guaranteed safe.</p>
+					<p class="muted">This local heuristic does not contact a threat database or follow redirects. No link is guaranteed safe.</p>
 				</div>
 				<div class="actions">
 					<button class="primary scan" type="button">Scan link</button>
@@ -101,10 +132,14 @@
 	function showWarning(url, analysis, target, openSeparately) {
 		pendingLink = { url, analysis, target, openSeparately };
 		createPopup();
-		popup.querySelector("#warning-title").textContent = "This link may be suspicious";
-		popup.querySelector("#warning-description").textContent = `A quick local check found signs worth reviewing on ${analysis.hostname}. Scan to see what they mean, or choose whether to continue.`;
+		const hasSignals = LinkInterceptor.shouldWarn(analysis);
+		popup.querySelector("#warning-title").textContent = hasSignals ? "This link may be suspicious" : "Review this link before opening";
+		popup.querySelector("#warning-description").textContent = hasSignals
+			? `A quick local check found signs worth reviewing on ${analysis.hostname}. Scan to see what they mean, or choose whether to continue.`
+			: `No common warning signs were detected for ${analysis.hostname}. Scan for details or choose whether to continue.`;
 		popup.querySelector(".destination").textContent = url;
 		popup.querySelector(".lesson").hidden = true;
+		popup.querySelector(".scan-summary").textContent = "";
 		popup.querySelector(".points").replaceChildren();
 		popup.querySelector(".scan").hidden = false;
 		document.documentElement.append(popupHost);
@@ -117,7 +152,11 @@
 		}
 		const lesson = popup.querySelector(".lesson");
 		const points = popup.querySelector(".points");
-		points.replaceChildren(...LinkInterceptor.getEducation(pendingLink.analysis).map((item) => {
+		const education = LinkInterceptor.getEducation(pendingLink.analysis);
+		popup.querySelector(".scan-summary").textContent = education.length
+			? `Risk indicators: ${pendingLink.analysis.score}/100. This is a heuristic score, not proof of harm.`
+			: `No common warning signs found (${pendingLink.analysis.score}/100). This does not prove the site is safe.`;
+		points.replaceChildren(...education.map((item) => {
 			const point = document.createElement("div");
 			point.className = "point";
 			const title = document.createElement("h3");
@@ -163,8 +202,21 @@
 			return;
 		}
 
-		const analysis = LinkInterceptor.inspectUrl(anchor.href);
-		if (analysis.error || !LinkInterceptor.shouldWarn(analysis)) {
+		const destinationUrl = getDestinationUrl(anchor.href);
+		let destination;
+		try {
+			destination = new URL(destinationUrl);
+		} catch {
+			return;
+		}
+		if (!["http:", "https:"].includes(destination.protocol)) {
+			return;
+		}
+
+		const fromWhatsAppWeb = location.hostname === "web.whatsapp.com";
+		const isExternalWhatsAppLink = fromWhatsAppWeb && !isWhatsAppHost(destination.hostname);
+		const analysis = LinkInterceptor.inspectUrl(destinationUrl);
+		if (analysis.error || (!LinkInterceptor.shouldWarn(analysis) && !isExternalWhatsAppLink)) {
 			return;
 		}
 
@@ -178,7 +230,7 @@
 			|| event.shiftKey
 			|| (normalizedTarget !== "_self" && normalizedTarget !== "_top" && normalizedTarget !== "_parent");
 		const destinationTarget = openSeparately && normalizedTarget === "_self" ? "_blank" : target;
-		showWarning(anchor.href, analysis, destinationTarget, openSeparately);
+		showWarning(destinationUrl, analysis, destinationTarget, openSeparately);
 	}
 
 	document.addEventListener("click", handleActivation, true);
