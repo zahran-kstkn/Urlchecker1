@@ -133,6 +133,33 @@
 		.example-button { padding: 6px 9px; border: 1px solid var(--line); border-radius: 2px; background: white; color: #45554b; font-size: 11px; cursor: pointer; }
 		.example-button:hover { border-color: var(--green); color: var(--green); }
 
+		.policy-panel { margin-top: 18px; padding: 22px; background: var(--surface); border: 1px solid var(--line); }
+		.policy-panel h2 { margin: 0 0 6px; font-size: 16px; }
+		.policy-description { margin: 0 0 14px; color: var(--muted); font-size: 12px; line-height: 1.55; }
+		.policy-form { display: grid; grid-template-columns: minmax(180px, 1fr) 120px minmax(180px, 1.2fr) auto; gap: 9px; align-items: end; }
+		.policy-field { display: grid; gap: 5px; color: var(--ink); font-size: 11px; font-weight: 700; }
+		.policy-field input, .policy-field select { min-width: 0; min-height: 40px; padding: 8px 10px; border: 1px solid #bbc7bd; border-radius: 2px; background: white; color: var(--ink); }
+		.policy-field input:focus, .policy-field select:focus { outline: 3px solid rgba(23, 104, 78, .16); border-color: var(--green); }
+		.policy-save { min-height: 40px; padding: 0 14px; border: 0; border-radius: 2px; background: var(--green); color: white; font-weight: 700; cursor: pointer; }
+		.policy-save:disabled, .policy-cancel:disabled, .policy-edit:disabled, .policy-remove:disabled { opacity: .6; cursor: wait; }
+		.policy-cancel, .policy-edit { min-height: 34px; padding: 0 9px; border: 1px solid var(--line); border-radius: 2px; background: white; color: var(--muted); cursor: pointer; }
+		.policy-form-actions, .policy-item-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+		.policy-status { min-height: 18px; margin: 9px 0 0; color: var(--muted); font-size: 11px; }
+		.policy-status[data-error="true"] { color: var(--red); }
+		.policy-list { display: grid; gap: 7px; margin: 12px 0 0; padding: 0; list-style: none; }
+		.policy-item { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; padding: 10px 12px; border: 1px solid var(--line); background: #fbfcfa; }
+		.policy-item-copy { min-width: 0; flex: 1 1 240px; }
+		.policy-item strong { font-size: 12px; overflow-wrap: anywhere; }
+		.policy-item p { margin: 3px 0 0; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+		.policy-badge { display: inline-block; margin-left: 6px; padding: 3px 6px; border-radius: 2px; background: #edf1ed; color: #33483a; font-size: 9px; font-weight: 800; text-transform: uppercase; }
+		.policy-badge[data-action="warn"] { background: var(--amber-bg); color: var(--amber); }
+		.policy-badge[data-action="block"] { background: var(--red-bg); color: var(--red); }
+		.policy-result { margin-top: 10px; padding: 9px 12px; border: 1px solid var(--line); background: white; color: var(--muted); font-size: 11px; line-height: 1.5; }
+		.policy-result[hidden] { display: none; }
+		.policy-result[data-action="warn"] { border-color: #e8d5a5; background: var(--amber-bg); color: #75500e; }
+		.policy-result[data-action="block"] { border-color: #e9c2ba; background: var(--red-bg); color: #873426; }
+		.policy-result[data-action="allow"] { border-color: #c6dfd0; background: var(--safe-bg); color: var(--safe); }
+
 		.privacy-panel { padding: 23px; background: #e7eee6; border-color: #d4ded3; animation: arrive .55s .14s ease-out both; }
 		.privacy-kicker { display: flex; align-items: center; gap: 8px; color: var(--green); font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
 		.privacy-panel h2 { margin: 18px 0 10px; font: 400 26px/1.1 var(--display); }
@@ -184,7 +211,10 @@
 			.intro { margin-bottom: 27px; }
 			h1 { max-width: 500px; font-size: 48px; }
 			.workspace { grid-template-columns: 1fr; gap: 12px; }
+			.policy-form { grid-template-columns: 1fr 1fr; }
+			.policy-field:first-child, .policy-field:nth-child(3) { grid-column: 1 / -1; }
 			.input-panel { padding: 19px; }
+			.policy-panel { padding: 18px 19px; }
 			.privacy-panel { padding: 18px 19px; }
 			.privacy-panel h2 { margin-top: 13px; }
 			.privacy-rule { margin: 13px 0 10px; }
@@ -248,13 +278,39 @@
 						<input id="page-warning-toggle" type="checkbox" checked>
 						<div>
 							<label for="page-warning-toggle">Warn me before suspicious links</label>
-							<p>Turn off the in-page prompt. The manual scanner will still work.</p>
+							<p>Turn off automatic prompts; explicit local allow, warn, and block rules still apply.</p>
 						</div>
 					</div>
 					<div class="setting-error" id="setting-error" role="alert" aria-live="polite"></div>
 					<div class="privacy-foot">This extension checks the URL locally in your browser. It is not uploaded, and the small built-in sample list is not a live threat feed.</div>
 				</aside>
 			</div>
+
+			<section class="policy-panel" aria-labelledby="policy-heading">
+				<h2 id="policy-heading">Local access rules</h2>
+				<p class="policy-description">Exact-host rules run in this browser and take priority over heuristic warnings. Allow proceeds, warn asks before opening, and block stops the clicked link. Rules do not control other apps or network traffic.</p>
+				<form id="policy-form" class="policy-form">
+					<label class="policy-field" for="policy-hostname">Exact hostname
+						<input id="policy-hostname" type="text" autocomplete="off" maxlength="253" placeholder="example.test" required>
+					</label>
+					<label class="policy-field" for="policy-action">Action
+						<select id="policy-action">
+							<option value="allow">Allow</option>
+							<option value="warn">Warn</option>
+							<option value="block">Block</option>
+						</select>
+					</label>
+					<label class="policy-field" for="policy-reason">Reason (required)
+						<input id="policy-reason" type="text" maxlength="200" placeholder="Why this rule applies" required>
+					</label>
+					<div class="policy-form-actions">
+						<button class="policy-save" type="submit">Add rule</button>
+						<button id="policy-cancel" class="policy-cancel" type="button" hidden>Cancel edit</button>
+					</div>
+				</form>
+				<p id="policy-status" class="policy-status" role="status" aria-live="polite"></p>
+				<ul id="policy-list" class="policy-list" aria-label="Configured access rules"></ul>
+			</section>
 
 			<section class="results" id="results" aria-live="polite" hidden>
 				<div class="result-top">
@@ -270,6 +326,7 @@
 					</div>
 				</div>
 				<div class="result-caveat">A low score does not prove a link is safe. This is a local heuristic check, not a live security or reputation service.</div>
+				<div class="policy-result" id="policy-result" hidden></div>
 				<div class="checks-heading"><h3>What we found</h3><span id="check-summary"></span></div>
 				<div class="checks" id="check-list"></div>
 			</section>
@@ -282,6 +339,7 @@
 	</div>
 
 	<script src="analyzer.js"></script>
+	<script src="policy.js"></script>
 	<script src="app.js"></script>
 </body>
 </html>

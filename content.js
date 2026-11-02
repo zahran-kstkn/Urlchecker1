@@ -9,6 +9,9 @@
 	let popup;
 	let pendingLink;
 	let warningsEnabled = true;
+	let accessRules = [];
+	let extensionStateReady = false;
+	let extensionStateReadyPromise;
 
 	function isWhatsAppHost(hostname) {
 		return hostname === "whatsapp.com"
@@ -64,6 +67,8 @@
 					color: #17251f;
 					font: 14px/1.5 "Segoe UI", Arial, sans-serif;
 				}
+				.card[data-action="block"] { border-top-color: #b93d2c; }
+				.card[data-action="warn"] { border-top-color: #a3650b; }
 				h2 { margin: 0 0 5px; font: 700 18px/1.25 "Segoe UI", Arial, sans-serif; }
 				p { margin: 8px 0; }
 				.muted { color: #58675e; font-size: 12px; }
@@ -104,6 +109,7 @@
 				<h2 id="warning-title"></h2>
 				<p id="warning-description"></p>
 				<div class="destination"></div>
+				<p class="policy-reason muted" hidden></p>
 				<div class="lesson" hidden>
 					<h3>What the scan found</h3>
 					<p class="scan-summary"></p>
@@ -129,21 +135,48 @@
 		});
 	}
 
-	function showWarning(url, analysis, target, openSeparately) {
-		pendingLink = { url, analysis, target, openSeparately };
+	function showWarning(url, analysis, target, openSeparately, rule) {
+		pendingLink = { url, analysis, target, openSeparately, rule };
 		createPopup();
 		const hasSignals = LinkInterceptor.shouldWarn(analysis);
-		popup.querySelector("#warning-title").textContent = hasSignals ? "This link may be suspicious" : "Review this link before opening";
-		popup.querySelector("#warning-description").textContent = hasSignals
-			? `A quick local check found signs worth reviewing on ${analysis.hostname}. Scan to see what they mean, or choose whether to continue.`
-			: `No common warning signs were detected for ${analysis.hostname}. Scan for details or choose whether to continue.`;
+		const card = popup.querySelector(".card");
+		const title = popup.querySelector("#warning-title");
+		const description = popup.querySelector("#warning-description");
+		const scanButton = popup.querySelector(".scan");
+		const proceedButton = popup.querySelector(".proceed");
+		const stayButton = popup.querySelector(".stay");
+		const policyReason = popup.querySelector(".policy-reason");
+		card.removeAttribute("data-action");
+		policyReason.hidden = !rule;
+		policyReason.textContent = rule ? `Local policy: ${rule.action.toUpperCase()} — ${rule.reason}` : "";
+		if (rule?.action === "block") {
+			card.dataset.action = "block";
+			title.textContent = "This link is blocked by policy";
+			description.textContent = `The local access rule for ${rule.hostname} stops this link from opening.`;
+			scanButton.hidden = true;
+			proceedButton.hidden = true;
+			stayButton.textContent = "Close";
+		} else {
+			if (rule) {
+				card.dataset.action = "warn";
+				title.textContent = "Review this link before opening";
+				description.textContent = `A local policy requires review before opening ${analysis.hostname}. Scan the link or choose whether to continue.`;
+			} else {
+				title.textContent = hasSignals ? "This link may be suspicious" : "Review this link before opening";
+				description.textContent = hasSignals
+					? `A quick local check found signs worth reviewing on ${analysis.hostname}. Scan to see what they mean, or choose whether to continue.`
+					: `No common warning signs were detected for ${analysis.hostname}. Scan for details or choose whether to continue.`;
+			}
+			scanButton.hidden = false;
+			proceedButton.hidden = false;
+			stayButton.textContent = "Don't proceed";
+		}
 		popup.querySelector(".destination").textContent = url;
 		popup.querySelector(".lesson").hidden = true;
 		popup.querySelector(".scan-summary").textContent = "";
 		popup.querySelector(".points").replaceChildren();
-		popup.querySelector(".scan").hidden = false;
 		document.documentElement.append(popupHost);
-		popup.querySelector(".scan").focus();
+		(rule?.action === "block" ? stayButton : scanButton).focus();
 	}
 
 	function showScan() {
@@ -193,8 +226,50 @@
 		}
 	}
 
+	function continueNavigation(url, target, openSeparately) {
+		if (openSeparately) {
+			window.open(url, target || "_blank", "noopener,noreferrer");
+			return;
+		}
+		window.location.assign(url);
+	}
+
+	function applyDestinationPolicy(url, target, openSeparately, deferred, event) {
+		let destination;
+		try {
+			destination = new URL(url);
+		} catch {
+			if (deferred) {
+				continueNavigation(url, target, openSeparately);
+			}
+			return;
+		}
+		const fromWhatsAppWeb = location.hostname === "web.whatsapp.com";
+		const isExternalWhatsAppLink = fromWhatsAppWeb && !isWhatsAppHost(destination.hostname);
+		const rule = LinkInterceptorPolicy.findRule(destination.hostname, accessRules);
+		if (rule?.action === "allow" || (!rule && !warningsEnabled)) {
+			if (deferred) {
+				continueNavigation(url, target, openSeparately);
+			}
+			return;
+		}
+		const analysis = LinkInterceptor.inspectUrl(url);
+		if (analysis.error || (!rule && !LinkInterceptor.shouldWarn(analysis) && !isExternalWhatsAppLink)) {
+			if (deferred) {
+				continueNavigation(url, target, openSeparately);
+			}
+			return;
+		}
+
+		if (!deferred) {
+			event.preventDefault();
+			event.stopImmediatePropagation();
+		}
+		showWarning(url, analysis, target, openSeparately, rule);
+	}
+
 	function handleActivation(event) {
-		if (!warningsEnabled || event.defaultPrevented || event.button !== (event.type === "auxclick" ? 1 : 0)) {
+		if (event.defaultPrevented || event.button !== (event.type === "auxclick" ? 1 : 0)) {
 			return;
 		}
 		const anchor = event.composedPath().find((node) => node instanceof HTMLAnchorElement);
@@ -213,15 +288,6 @@
 			return;
 		}
 
-		const fromWhatsAppWeb = location.hostname === "web.whatsapp.com";
-		const isExternalWhatsAppLink = fromWhatsAppWeb && !isWhatsAppHost(destination.hostname);
-		const analysis = LinkInterceptor.inspectUrl(destinationUrl);
-		if (analysis.error || (!LinkInterceptor.shouldWarn(analysis) && !isExternalWhatsAppLink)) {
-			return;
-		}
-
-		event.preventDefault();
-		event.stopImmediatePropagation();
 		const target = anchor.target || document.querySelector("base[target]")?.target || "_self";
 		const normalizedTarget = target.toLowerCase();
 		const openSeparately = event.type === "auxclick"
@@ -230,23 +296,46 @@
 			|| event.shiftKey
 			|| (normalizedTarget !== "_self" && normalizedTarget !== "_top" && normalizedTarget !== "_parent");
 		const destinationTarget = openSeparately && normalizedTarget === "_self" ? "_blank" : target;
-		showWarning(destinationUrl, analysis, destinationTarget, openSeparately);
+		if (!extensionStateReady) {
+			event.preventDefault();
+			event.stopImmediatePropagation();
+			extensionStateReadyPromise.then(() => {
+				applyDestinationPolicy(destinationUrl, destinationTarget, openSeparately, true);
+			});
+			return;
+		}
+		applyDestinationPolicy(destinationUrl, destinationTarget, openSeparately, false, event);
 	}
 
 	document.addEventListener("click", handleActivation, true);
 	document.addEventListener("auxclick", handleActivation, true);
 
-	extensionApi.storage.local.get("warnOnPage").then((settings) => {
-		warningsEnabled = settings.warnOnPage !== false;
-	}).catch((error) => {
-		console.error("Unable to load the Link Interceptor warning setting; warnings stay enabled.", error);
+	extensionStateReadyPromise = Promise.all([
+		extensionApi.storage.local.get("warnOnPage").then((settings) => {
+			warningsEnabled = settings.warnOnPage !== false;
+		}).catch((error) => {
+			console.error("Unable to load the Link Interceptor warning setting; warnings stay enabled.", error);
+		}),
+		extensionApi.storage.local.get("accessRules").then((settings) => {
+			accessRules = LinkInterceptorPolicy.sanitizeRules(settings.accessRules);
+		}).catch((error) => {
+			console.error("Unable to load Link Interceptor access rules.", error);
+		})
+	]).then(() => {
+		extensionStateReady = true;
 	});
 	extensionApi.storage.onChanged.addListener((changes, areaName) => {
-		if (areaName === "local" && changes.warnOnPage) {
+		if (areaName !== "local") {
+			return;
+		}
+		if (changes.warnOnPage) {
 			warningsEnabled = changes.warnOnPage.newValue !== false;
-			if (!warningsEnabled) {
+			if (!warningsEnabled && !pendingLink?.rule) {
 				dismiss();
 			}
+		}
+		if (changes.accessRules) {
+			accessRules = LinkInterceptorPolicy.sanitizeRules(changes.accessRules.newValue);
 		}
 	});
 })();

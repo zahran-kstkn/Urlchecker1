@@ -4,7 +4,9 @@ A URL analysis demo. The service analyzes submitted URLs but never opens them or
 
 ## Install as a browser extension
 
-The extension uses the existing `index.html` as its toolbar popup. URL analysis runs entirely in your browser; it does not contact the Python service or any reputation provider. It asks for permission to read links on websites so it can warn before a suspicious link opens. Only the URL of a link you click is checked. Links scoring 15 or higher on the existing heuristic check show a small in-page prompt, with options to scan, proceed, or stay. In WhatsApp Web, every clicked external web link shows the prompt, including links with no heuristic warnings, so you can review it before opening. Scanning explains detected signals and common scam tactics; it is not a live threat lookup and does not follow redirects, so no warning signs do not prove a site is safe. The in-page warning can be turned off in the extension popup; the manual scanner remains available. The extension only attempts to read the clipboard when you click **Paste**; the `clipboardRead` permission enables that button.
+The extension uses the existing `index.html` as its toolbar popup. URL analysis and access rules run in your browser; they do not contact the Python service or a reputation provider. It asks for permission to read links on websites so it can check clicked links. Exact-host rules stored in extension-local storage take priority over heuristics: **allow** proceeds, **warn** shows a prompt with the option to proceed or stay, and **block** stops that click and explains the rule. A rule applies only to its exact hostname (not subdomains). Explicit rules still apply if automatic in-page prompts are turned off. Without a matching rule, links scoring 15 or higher on the existing heuristic check show the warning. In WhatsApp Web, every clicked external web link shows the prompt by default, including links with no heuristic warnings, so you can review it before opening. Scanning explains detected signals and common scam tactics; it is not a live threat lookup and does not follow redirects, so no warning signs do not prove a site is safe. The **Paste** button only attempts to read the clipboard when clicked; the `clipboardRead` permission enables it.
+
+These are browser link controls, not a network-wide firewall: they do not control other browsers, applications, or traffic that does not result from an intercepted link click. Rules are local to the browser extension and are not centrally administered. The popup's manual scanner reports a matching rule but does not open or block the manually entered URL.
 
 ### Chrome
 
@@ -23,6 +25,20 @@ The extension uses the existing `index.html` as its toolbar popup. URL analysis 
 Firefox temporary add-ons are removed when Firefox closes. For regular use, package the project folder as a ZIP and submit it to Mozilla Add-ons for signing; then install the signed XPI. The same source folder and manifest work for Chrome and Firefox.
 
 The WhatsApp Web link prompt does not work inside the WhatsApp mobile or desktop app. It checks URLs locally with simple heuristics, not a live threat database, and it does not follow redirects: a warning means there are signals to review, and no warning signals do not mean a site is safe.
+
+### Try the local access rules
+
+Open the extension popup and add exact hostnames (no `https://`, wildcard, path, or port), choose **allow**, **warn**, or **block**, and enter a reason. Saving another rule for the same hostname updates the existing rule. Rules are stored in the browser's extension-local storage. The standalone webpage uses that browser page's local storage instead; those page rules are not shared with the extension's click interceptor.
+
+For a classroom demonstration, try adding these three rules:
+
+| Hostname | Action | Reason |
+| --- | --- | --- |
+| `news.example.org` | Allow | Reserved example host for the allow demonstration |
+| `paypa1-secure.test` | Warn | Reserved demo lookalike hostname |
+| `account-verify.test` | Block | Reserved test hostname for demonstrating a block |
+
+Click the matching sample links where available, and add a sample link for `account-verify.test` to a test page if needed. The `.test` names are reserved examples; these rules are for demonstration, not real threat intelligence. **Block** stops the intercepted browser link click only; entering a hostname manually or using another application is outside this extension's enforcement.
 
 ## Run
 

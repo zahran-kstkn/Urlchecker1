@@ -19,6 +19,7 @@
 			],
 			"js": [
 				"analyzer.js",
+				"policy.js",
 				"content.js"
 			],
 			"run_at": "document_start"
