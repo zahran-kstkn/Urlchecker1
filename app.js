@@ -302,3 +302,144 @@ document.querySelectorAll("[data-example]").forEach((button) => {
 		form.requestSubmit();
 	});
 });
+
+const accountRequestForm = document.querySelector("#account-request-form");
+const accountVerifyForm = document.querySelector("#account-verify-form");
+const accountSignedIn = document.querySelector("#account-signed-in");
+const accountEmail = document.querySelector("#account-email");
+const accountCode = document.querySelector("#account-code");
+const accountStatus = document.querySelector("#account-status");
+const accountUser = document.querySelector("#account-user");
+
+function setAccountStatus(message, isError = false) {
+	accountStatus.textContent = message;
+	accountStatus.dataset.error = String(isError);
+}
+
+async function callAuthApi(path, payload) {
+	const options = { credentials: "same-origin" };
+	if (payload) {
+		options.method = "POST";
+		options.headers = { "Content-Type": "application/json" };
+		options.body = JSON.stringify(payload);
+	}
+	const response = await fetch(path, options);
+	if (!response.headers.get("Content-Type")?.includes("application/json")) {
+		throw new Error("Account sign-in requires the Python server. Run it and open http://127.0.0.1:8000/.");
+	}
+	const result = await response.json();
+	if (!response.ok) {
+		throw new Error(result.error || "The account request could not be completed.");
+	}
+	return result;
+}
+
+function getDeviceId() {
+	const storageKey = "linkInterceptorDeviceId";
+	let deviceId = localStorage.getItem(storageKey);
+	if (!deviceId) {
+		if (!crypto.randomUUID) {
+			throw new Error("This browser cannot create a secure random device ID.");
+		}
+		deviceId = crypto.randomUUID();
+		localStorage.setItem(storageKey, deviceId);
+	}
+	return deviceId;
+}
+
+function showSignedInUser(user) {
+	accountRequestForm.hidden = true;
+	accountVerifyForm.hidden = true;
+	accountSignedIn.hidden = false;
+	accountUser.textContent = `Signed in: ${user.email} (${user.role}) · Browser ID: ${user.device_id}`;
+	setAccountStatus("School mailbox access verified. This generated browser ID is an identifier, not proof of device ownership.");
+}
+
+accountRequestForm.addEventListener("submit", async (event) => {
+	event.preventDefault();
+	setAccountStatus("");
+	const button = accountRequestForm.querySelector("button");
+	button.disabled = true;
+	try {
+		const result = await callAuthApi("/api/auth/request-code", { email: accountEmail.value.trim() });
+		accountRequestForm.hidden = true;
+		accountVerifyForm.hidden = false;
+		setAccountStatus(result.message);
+		accountCode.focus();
+	} catch (authError) {
+		setAccountStatus(authError.message || "Could not request a verification code.", true);
+	} finally {
+		button.disabled = false;
+	}
+});
+
+accountVerifyForm.addEventListener("submit", async (event) => {
+	event.preventDefault();
+	setAccountStatus("");
+	const button = accountVerifyForm.querySelector('button[type="submit"]');
+	button.disabled = true;
+	try {
+		const result = await callAuthApi("/api/auth/verify-code", {
+			email: accountEmail.value.trim(),
+			code: accountCode.value.trim(),
+			deviceId: getDeviceId()
+		});
+		showSignedInUser(result.user);
+	} catch (authError) {
+		setAccountStatus(authError.message || "Could not verify the code.", true);
+	} finally {
+		button.disabled = false;
+	}
+});
+
+document.querySelector("#account-change-email").addEventListener("click", () => {
+	accountVerifyForm.hidden = true;
+	accountRequestForm.hidden = false;
+	accountCode.value = "";
+	setAccountStatus("");
+	accountEmail.focus();
+});
+
+document.querySelector("#account-sign-out").addEventListener("click", async (event) => {
+	const button = event.currentTarget;
+	button.disabled = true;
+	try {
+		await callAuthApi("/api/auth/sign-out", {});
+		accountSignedIn.hidden = true;
+		accountRequestForm.hidden = false;
+		accountVerifyForm.hidden = true;
+		accountCode.value = "";
+		setAccountStatus("You have signed out. The generated browser ID remains stored on this browser.");
+	} catch (authError) {
+		setAccountStatus(authError.message || "Could not sign out. Please try again.", true);
+	} finally {
+		button.disabled = false;
+	}
+});
+
+async function initializeAccount() {
+	if (!["http:", "https:"].includes(location.protocol)) {
+		accountRequestForm.querySelector("button").disabled = true;
+		setAccountStatus("Account registration requires the Python web server. Open http://127.0.0.1:8000/; extension link checks work independently.");
+		return;
+	}
+	try {
+		const [status, session] = await Promise.all([
+			callAuthApi("/api/auth/status"),
+			callAuthApi("/api/auth/me")
+		]);
+		if (session.user) {
+			showSignedInUser(session.user);
+			return;
+		}
+		if (!status.configured) {
+			accountRequestForm.querySelector("button").disabled = true;
+			setAccountStatus("School email verification is not configured. Configure the approved SMTP settings on the Python server; link checks remain available.", true);
+		}
+	} catch (authError) {
+		accountRequestForm.querySelector("button").disabled = true;
+		setAccountStatus(authError.message || "Account sign-in is unavailable. Run the Python server to use it.", true);
+	}
+}
+
+initializeAccount();

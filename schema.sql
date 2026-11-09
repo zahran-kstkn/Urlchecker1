@@ -30,6 +30,40 @@ CREATE TABLE IF NOT EXISTS brand_domains (
     PRIMARY KEY (brand_id, domain_id)
 );
 
+CREATE TABLE IF NOT EXISTS users (
+    user_id INTEGER PRIMARY KEY,
+    email TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    role TEXT NOT NULL CHECK (role IN ('lecturer', 'student')),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_login_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS email_verification_codes (
+    email TEXT PRIMARY KEY COLLATE NOCASE,
+    code_hash TEXT NOT NULL,
+    expires_at INTEGER NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    sent_at INTEGER NOT NULL,
+    request_count INTEGER NOT NULL DEFAULT 1,
+    window_started_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS user_devices (
+    user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    device_id TEXT NOT NULL,
+    registered_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_login_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, device_id)
+);
+
+CREATE TABLE IF NOT EXISTS user_sessions (
+    token_hash TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    device_id TEXT NOT NULL,
+    expires_at INTEGER NOT NULL,
+    FOREIGN KEY (user_id, device_id) REFERENCES user_devices(user_id, device_id) ON DELETE CASCADE
+);
+
 INSERT OR IGNORE INTO threat_sources (name, description)
 VALUES ('local-demo', 'Reserved .test examples for demonstrating the interface; not a live threat feed.');
 

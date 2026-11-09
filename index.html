@@ -37,7 +37,7 @@
 			font-family: var(--ui);
 		}
 
-		button, textarea { font: inherit; }
+		button, textarea, input { font: inherit; }
 		button { color: inherit; }
 
 		.shell { width: min(1120px, calc(100% - 48px)); margin: 0 auto; }
@@ -160,6 +160,23 @@
 		.policy-result[data-action="block"] { border-color: #e9c2ba; background: var(--red-bg); color: #873426; }
 		.policy-result[data-action="allow"] { border-color: #c6dfd0; background: var(--safe-bg); color: var(--safe); }
 
+		.account-panel { margin-bottom: 18px; padding: 20px 22px; background: #fff; border: 1px solid var(--line); }
+		.account-panel h2 { margin: 0 0 6px; font-size: 16px; }
+		.account-description, .account-status { color: var(--muted); font-size: 12px; line-height: 1.5; }
+		.account-description { margin: 0 0 13px; }
+		.account-form { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; }
+		.account-field { display: grid; flex: 1 1 220px; gap: 5px; color: var(--ink); font-size: 11px; font-weight: 700; }
+		.account-field input { min-height: 40px; padding: 8px 10px; border: 1px solid #bbc7bd; border-radius: 2px; }
+		.account-field input:focus { outline: 3px solid rgba(23, 104, 78, .16); border-color: var(--green); }
+		.account-button { min-height: 40px; padding: 0 14px; border: 0; border-radius: 2px; background: var(--green); color: white; font-weight: 700; cursor: pointer; }
+		.account-button:disabled { opacity: .6; cursor: wait; }
+		.account-status { min-height: 18px; margin: 10px 0 0; }
+		.account-status[data-error="true"] { color: var(--red); }
+		.account-signed-in { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+		.account-signed-in p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+		.account-secondary { min-height: 36px; padding: 0 10px; border: 1px solid var(--line); border-radius: 2px; background: white; cursor: pointer; }
+		.account-form[hidden], .account-signed-in[hidden] { display: none; }
+
 		.privacy-panel { padding: 23px; background: #e7eee6; border-color: #d4ded3; animation: arrive .55s .14s ease-out both; }
 		.privacy-kicker { display: flex; align-items: center; gap: 8px; color: var(--green); font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
 		.privacy-panel h2 { margin: 18px 0 10px; font: 400 26px/1.1 var(--display); }
@@ -210,6 +227,7 @@
 			main { padding: 40px 0 48px; }
 			.intro { margin-bottom: 27px; }
 			h1 { max-width: 500px; font-size: 48px; }
+			.account-panel { padding: 17px; }
 			.workspace { grid-template-columns: 1fr; gap: 12px; }
 			.policy-form { grid-template-columns: 1fr 1fr; }
 			.policy-field:first-child, .policy-field:nth-child(3) { grid-column: 1 / -1; }
@@ -244,6 +262,29 @@
 				<div class="eyebrow">A second look at suspicious links</div>
 				<h1 id="page-title">A link can wait.<br>Your safety can't.</h1>
 				<p>Paste a URL from a text or email. We'll inspect its address for common phishing clues before you open it.</p>
+			</section>
+
+			<section class="account-panel" aria-labelledby="account-heading">
+				<h2 id="account-heading">School account and device</h2>
+				<p class="account-description">Verify access to a school mailbox with a one-time email code. This registers the account and a random browser ID—not a MAC address or legal ID. Link analysis remains local.</p>
+				<form id="account-request-form" class="account-form">
+					<label class="account-field" for="account-email">School email
+						<input id="account-email" type="email" autocomplete="email" maxlength="254" required placeholder="name@student.president.ac.id">
+					</label>
+					<button class="account-button" type="submit">Send verification code</button>
+				</form>
+				<form id="account-verify-form" class="account-form" hidden>
+					<label class="account-field" for="account-code">Six-digit code
+						<input id="account-code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required>
+					</label>
+					<button class="account-button" type="submit">Verify and sign in</button>
+					<button id="account-change-email" class="account-secondary" type="button">Use another email</button>
+				</form>
+				<div id="account-signed-in" class="account-signed-in" hidden>
+					<p id="account-user"></p>
+					<button id="account-sign-out" class="account-secondary" type="button">Sign out</button>
+				</div>
+				<p id="account-status" class="account-status" role="status" aria-live="polite"></p>
 			</section>
 
 			<div class="workspace">

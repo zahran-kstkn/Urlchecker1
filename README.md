@@ -50,6 +50,26 @@ python server.py
 
 Open <http://127.0.0.1:8000/> in your browser. The SQLite database is created as `link_interceptor.sqlite3` the first time the server starts. Stop the service with Ctrl+C.
 
+### School account and browser ID prototype
+
+The Python-served webpage can register and sign in an account by emailing a six-digit one-time code to `@president.ac.id` or `@student.president.ac.id`. The first successful verification creates the account; the email suffix labels the account as lecturer or student. The browser also creates a random UUID as a per-browser identifier and registers it with the signed-in account. This is not a MAC address, device fingerprint, legal ID, or proof of device ownership. Email-code verification confirms access to that mailbox, not legal identity or an institution-approved sign-in; ask school IT for approval before using it beyond a class demo.
+
+The account flow requires an SMTP service authorized to deliver to the school mailboxes. Configure these PowerShell environment variables before starting the server:
+
+```powershell
+$env:AUTH_SECRET = python -c "import secrets; print(secrets.token_urlsafe(48))"
+$env:SMTP_HOST = "smtp.example.edu"
+$env:SMTP_PORT = "587"
+$env:SMTP_FROM = "link-interceptor@example.edu"
+$env:SMTP_USER = "smtp-account"
+$env:SMTP_PASSWORD = "provider-app-password"
+python server.py
+```
+
+`AUTH_SECRET`, `SMTP_HOST`, and `SMTP_FROM` are required; `SMTP_PORT` defaults to `587`. Set `SMTP_USER` and `SMTP_PASSWORD` together when the mail provider requires authentication. For an SSL SMTP endpoint, set `$env:SMTP_USE_SSL = "true"` and use the provider's SSL port. Keep secrets out of source control. The service hashes pending codes, expires them after 10 minutes, limits code attempts and requests, and uses an HttpOnly session cookie. Sessions last up to seven days. The browser ID remains in that browser's local storage after sign-out, and link URLs are not attached to the account or sent to the authentication endpoints.
+
+The account UI requires the Python server; it is unavailable in the static GitHub Pages demo and the standalone extension popup. The extension's link checks continue to work independently. For a public service, deploy behind HTTPS and set `COOKIE_SECURE=true`; use school-approved email infrastructure and a persistent database if registrations must survive redeployments.
+
 Run the backend tests with:
 
 ```powershell
