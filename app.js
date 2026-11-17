@@ -443,3 +443,49 @@ async function initializeAccount() {
 }
 
 initializeAccount();
+
+const watcherPanel = document.querySelector("#watcher-panel");
+const watcherList = document.querySelector("#watcher-list");
+const watcherStats = document.querySelector("#watcher-stats");
+
+async function renderWatcher() {
+	if (!extensionApi?.storage?.local) {
+		watcherPanel.hidden = true;
+		return;
+	}
+	const { watcherLog = [] } = await extensionApi.storage.local.get("watcherLog");
+	const fromWa = watcherLog.filter((e) => e.source === "web.whatsapp.com").length;
+	watcherStats.textContent = `${watcherLog.length} links logged, ${fromWa} from WhatsApp Web.`;
+	if (!watcherLog.length) {
+		const empty = document.createElement("li");
+		empty.className = "policy-item";
+		empty.textContent = "No links logged yet.";
+		watcherList.replaceChildren(empty);
+		return;
+	}
+	watcherList.replaceChildren(...watcherLog.slice(0, 20).map((e) => {
+		const item = document.createElement("li");
+		item.className = "policy-item";
+		const title = document.createElement("strong");
+		title.textContent = e.hostname || e.url;
+		const detail = document.createElement("p");
+		const score = e.score === null || e.score === undefined ? "-" : e.score;
+		detail.textContent = `${new Date(e.time).toLocaleString()} | score ${score} | ${e.action} | from ${e.source}`;
+		const copy = document.createElement("div");
+		copy.className = "policy-item-copy";
+		copy.append(title, detail);
+		item.append(copy);
+		return item;
+	}));
+}
+
+document.querySelector("#watcher-clear").addEventListener("click", async () => {
+	await extensionApi.storage.local.set({ watcherLog: [] });
+});
+
+if (extensionApi?.storage?.onChanged) {
+	extensionApi.storage.onChanged.addListener((changes, area) => {
+		if (area === "local" && changes.watcherLog) renderWatcher();
+	});
+}
+renderWatcher();
