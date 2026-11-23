@@ -221,6 +221,7 @@ loadWarningSetting();
 function showResults(analysis, rule) {
 	const score = analysis.score;
 	const flagged = analysis.checks.filter((check) => check.state === "bad" || check.state === "warn").length;
+	const hasURLhausCheck = analysis.checks.some((check) => check.name === "URLhaus offline feed");
 	const isHigh = score >= 45;
 	const isCaution = score >= 15;
 	document.querySelector("#verdict-label").textContent = isHigh ? "Strong warning" : isCaution ? "Use caution" : "No obvious red flags";
@@ -234,6 +235,9 @@ function showResults(analysis, rule) {
 	document.querySelector("#score-fill").style.width = `${score}%`;
 	document.querySelector("#score-fill").style.background = isHigh ? "var(--red)" : isCaution ? "var(--amber)" : "var(--green)";
 	document.querySelector("#check-summary").textContent = `${flagged} signal${flagged === 1 ? "" : "s"} to review`;
+	document.querySelector(".result-caveat").textContent = hasURLhausCheck
+		? "This result includes a local URLhaus malware-feed snapshot. It may be outdated, and a match or no-match is not a guarantee of safety."
+		: "A low score does not prove a link is safe. This is a local heuristic check, not a live security or reputation service.";
 	if (rule) {
 		policyResult.hidden = false;
 		policyResult.dataset.action = rule.action;

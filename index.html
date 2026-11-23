@@ -111,6 +111,7 @@
 		.url-input:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(23, 104, 78, .12); }
 		.url-input::placeholder { color: #89948d; }
 		.input-error { min-height: 20px; padding-top: 5px; color: var(--red); font-size: 12px; }
+		.urlhaus-note { margin: 8px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
 		.actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
 		.analyze-button {
 			min-height: 45px;
@@ -302,6 +303,7 @@
 							<button class="text-button" id="paste-button" type="button">Paste</button>
 							<button class="text-button" id="clear-button" type="button">Clear</button>
 						</div>
+						<p class="urlhaus-note">This check uses the URLhaus malware URL snapshot bundled with this extension. URLs are checked locally and are not sent to URLhaus. The snapshot can be outdated, and a no-match is not proof that a URL is safe.</p>
 					</form>
 					<div class="examples" aria-label="Example URLs">
 						<span class="examples-label">Try a sample:</span>
@@ -360,7 +362,7 @@
 						<h2 id="verdict-title">Review the signals</h2>
 						<p id="verdict-description"></p>
 					</div>
-					<div class="score-box" aria-label="Heuristic risk score">
+					<div class="score-box" aria-label="Combined URL risk score">
 						<div class="score-number"><span id="score-value">0</span><span style="font-size:20px">/100</span></div>
 						<div class="score-caption">Risk indicators</div>
 						<div class="score-track" aria-hidden="true"><div class="score-fill" id="score-fill"></div></div>
@@ -385,6 +387,7 @@
 		</footer>
 	</div>
 
+	<script src="urlhaus-feed.js"></script>
 	<script src="analyzer.js"></script>
 	<script src="policy.js"></script>
 	<script src="app.js"></script>

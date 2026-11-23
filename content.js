@@ -180,7 +180,7 @@
 				<h3>What the scan found</h3>
 				<p class="scan-summary"></p>
 				<div class="points"></div>
-				<p class="muted">This local heuristic does not contact a threat database or follow redirects. No link is guaranteed safe.</p>
+				<p class="muted">This scan uses a bundled URLhaus snapshot and local heuristics; it does not contact URLhaus or follow redirects. The snapshot may be outdated, and no link is guaranteed safe.</p>
 			</div>
 			<div class="actions">
 				<button class="primary scan" type="button">Scan link</button>

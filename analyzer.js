@@ -1,5 +1,20 @@
 (function (global) {
 	const demoDomains = new Set(["paypa1-secure.test", "account-verify.test", "parcel-track.test"]);
+	const bundledURLhausFeed = global.LinkInterceptorURLhausFeed;
+	const urlhausUrls = new Set((Array.isArray(bundledURLhausFeed?.urls) ? bundledURLhausFeed.urls : [])
+		.map((value) => {
+			try {
+				const url = new URL(value);
+				if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) {
+					return null;
+				}
+				url.hash = "";
+				return url.href;
+			} catch {
+				return null;
+			}
+		})
+		.filter(Boolean));
 	const officialDomains = {
 		paypal: ["paypal.com"],
 		google: ["google.com", "google.co.uk"],
@@ -61,8 +76,16 @@
 		const knownDemoDomain = demoDomains.has(hostname);
 		const longUrl = raw.length > 120;
 		const credentials = Boolean(url.username || url.password);
+		const exactUrl = new URL(url.href);
+		exactUrl.hash = "";
+		const urlhausMatch = urlhausUrls.has(exactUrl.href);
+		const feedUpdated = bundledURLhausFeed?.generatedAt;
+		const feedSummary = urlhausUrls.size
+			? `${urlhausUrls.size.toLocaleString()} URLs${feedUpdated ? `; snapshot generated ${feedUpdated}` : ""}`
+			: "no URL entries";
 		const checks = [
 			{ name: "Demo reputation", detail: knownDemoDomain ? "This exact domain is a built-in demonstration entry, not a verified threat report." : "No match in the small built-in demonstration list; this is not a live reputation lookup.", state: knownDemoDomain ? "bad" : "neutral", weight: knownDemoDomain ? 100 : 0 },
+			{ name: "URLhaus offline feed", detail: urlhausMatch ? "Exact URL match found in the bundled URLhaus malware feed." : `No exact URL match in the bundled URLhaus feed (${feedSummary}). This does not prove the URL is safe.`, state: urlhausMatch ? "bad" : "neutral", weight: urlhausMatch ? 100 : 0 },
 			{ name: "Brand lookalike", detail: suspectedBrand ? `The hostname may be imitating ${suspectedBrand}. Verify its registered domain independently.` : "No common brand imitation was detected by these simple checks.", state: suspectedBrand ? "bad" : "good", weight: suspectedBrand ? 45 : 0 },
 			{ name: "Connection", detail: url.protocol === "https:" ? "HTTPS is present, but encryption alone does not establish trust." : "This address uses HTTP, so the connection is not encrypted.", state: url.protocol === "https:" ? "good" : "warn", weight: url.protocol === "https:" ? 0 : 20 },
 			{ name: "Host structure", detail: isIp ? "The hostname is an IP address rather than a familiar domain." : `${subdomainCount} subdomain${subdomainCount === 1 ? "" : "s"}${subdomainCount >= 3 ? "; unusually deep nesting can hide the actual domain." : "."}`, state: isIp ? "warn" : subdomainCount >= 3 ? "warn" : "good", weight: isIp ? 20 : subdomainCount >= 3 ? 15 : 0 },
@@ -80,6 +103,8 @@
 				let lesson;
 				if (check.name === "Demo reputation") {
 					lesson = "Scammers often impersonate services people already trust. This built-in match is only a demonstration entry, not a real threat report.";
+				} else if (check.name === "URLhaus offline feed") {
+					lesson = "This exact URL appears in the bundled URLhaus malware-distribution feed. The local snapshot may be out of date, and a missing match does not mean a URL is safe.";
 				} else if (check.name === "Brand lookalike") {
 					lesson = "Phishing messages often use a slightly altered brand name to make a fake sign-in or payment page look familiar. Check the actual domain, not just the logo or page design.";
 				} else if (check.name === "Connection") {

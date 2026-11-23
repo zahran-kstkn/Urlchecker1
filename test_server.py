@@ -124,7 +124,6 @@ class SchoolAccountTests(unittest.TestCase):
         )
         self.assertEqual(response.status, 403)
 
-
 class AnalyzeUrlTests(unittest.TestCase):
     def setUp(self):
         self.temporary_directory = tempfile.TemporaryDirectory()

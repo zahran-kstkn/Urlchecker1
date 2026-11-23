@@ -22,6 +22,7 @@
 				"https://*/*"
 			],
 			"js": [
+				"urlhaus-feed.js",
 				"analyzer.js",
 				"policy.js",
 				"content.js"
