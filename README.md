@@ -4,7 +4,7 @@ A URL analysis demo. URL checks run locally in the browser and do not open or up
 
 ## Install as a browser extension
 
-The extension uses the existing `index.html` as its toolbar popup. URL analysis, the bundled URLhaus snapshot, and access rules run in your browser; they do not contact the Python service or a reputation provider. It asks for permission to read links on websites so it can check clicked links. Exact-host rules stored in extension-local storage take priority over heuristics: **allow** proceeds, **warn** shows a prompt with the option to proceed or stay, and **block** stops that click and explains the rule. A rule applies only to its exact hostname (not subdomains). Explicit rules still apply if automatic in-page prompts are turned off. Without a matching rule, links scoring 15 or higher on the existing heuristic check show the warning. In WhatsApp Web, every clicked external web link shows the prompt by default, including links with no heuristic warnings, so you can review it before opening. Scanning explains detected signals and common scam tactics; it does not follow redirects, and a bundled feed can become outdated, so no warning signs do not prove a site is safe. The **Paste** button only attempts to read the clipboard when clicked; the `clipboardRead` permission enables it.
+The extension uses the existing `index.html` as its toolbar popup. URL analysis, the bundled URLhaus snapshot, and access rules run in your browser; they do not contact the Python service or a reputation provider. It asks for permission to read links on websites so it can check clicked links. Exact-host rules stored in extension-local storage take priority over heuristics: **allow** proceeds, **warn** shows a prompt with the option to proceed or stay, and **block** stops that click and explains the rule. A rule applies only to its exact hostname (not subdomains). Explicit rules still apply if automatic in-page prompts are turned off. Without a matching rule, links scoring 15 or higher on the existing heuristic check show the warning. In WhatsApp Web, every clicked external web link shows the prompt by default, including links with no heuristic warnings, so you can review it before opening. The Guard intercepts clickable links, not plain text that merely contains a URL; WhatsApp must render the message text as an actual link. Scanning explains detected signals and common scam tactics; it does not follow redirects, and a bundled feed can become outdated, so no warning signs do not prove a site is safe. The **Paste** button only attempts to read the clipboard when clicked; the `clipboardRead` permission enables it.
 
 These are browser link controls, not a network-wide firewall: they do not control other browsers, applications, or traffic that does not result from an intercepted link click. Rules are local to the browser extension and are not centrally administered. The popup's manual scanner reports a matching rule but does not open or block the manually entered URL.
 
@@ -19,10 +19,16 @@ These are browser link controls, not a network-wide firewall: they do not contro
 
 1. Open `about:debugging#/runtime/this-firefox`.
 2. Choose **Load Temporary Add-on…**.
-3. Select this project's `manifest.json` and approve website access when prompted.
-4. Make sure the extension is allowed to run on `web.whatsapp.com`, then refresh the WhatsApp Web tab.
+3. Firefox uses background scripts instead of the Chrome service worker. In PowerShell, create a Firefox-ready copy (the command bypasses execution policy for this script only; it does not change your system policy):
 
-Firefox temporary add-ons are removed when Firefox closes. For regular use, package the project folder as a ZIP and submit it to Mozilla Add-ons for signing; then install the signed XPI. The same source folder and manifest work for Chrome and Firefox.
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\build_firefox.ps1
+   ```
+
+4. In Firefox's file picker, select `firefox-build\manifest.json` and approve website access when prompted.
+5. Make sure the extension is allowed to run on `web.whatsapp.com`, then refresh the WhatsApp Web tab.
+
+Firefox temporary add-ons are removed when Firefox closes. For regular use, package the Firefox-ready folder as a ZIP and submit it to Mozilla Add-ons for signing; then install the signed XPI. Chrome continues to use the root `manifest.json`.
 
 The WhatsApp Web link prompt does not work inside the WhatsApp mobile or desktop app. It checks URLs locally with simple heuristics, not a live threat database, and it does not follow redirects: a warning means there are signals to review, and no warning signals do not mean a site is safe.
 

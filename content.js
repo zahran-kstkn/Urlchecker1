@@ -372,13 +372,25 @@
 		showWarning({ ...link, ...review, logPromise });
 	}
 
+	function findAnchor(event) {
+		const path = typeof event.composedPath === "function" ? event.composedPath() : [];
+		const anchor = path.find((node) => node && node.nodeType === 1 && node.localName?.toLowerCase() === "a");
+		if (anchor) {
+			return anchor;
+		}
+
+		const target = event.target;
+		const element = target?.nodeType === 1 ? target : target?.parentElement;
+		return element?.closest?.("a") || null;
+	}
+
 	function handleActivation(event) {
 		const expectedButton = event.type === "auxclick" ? 1 : 0;
 		if (event.defaultPrevented || event.button !== expectedButton) {
 			return;
 		}
 
-		const anchor = event.composedPath().find((node) => node instanceof HTMLAnchorElement);
+		const anchor = findAnchor(event);
 		if (!anchor || anchor.hasAttribute("download")) {
 			return;
 		}
